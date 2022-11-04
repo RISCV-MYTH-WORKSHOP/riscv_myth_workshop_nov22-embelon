@@ -11,11 +11,12 @@
    // stimulus support, and Verilator config.
    m4_makerchip_module   // (Expanded in Nav-TLV pane.)
 \TLV
-   $reset = *reset;
-
-   $val2[31:0] = $rand2[3:0];
    
    |calc
+      @0
+         $reset = *reset;
+         $val2[31:0] = $rand2[3:0];
+         
       @1
          // calculator
          $val1[31:0] = >>2$out[31:0];
@@ -48,3 +49,4 @@
    *failed = 1'b0;
 \SV
    endmodule
+
