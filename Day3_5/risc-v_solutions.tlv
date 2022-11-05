@@ -51,6 +51,7 @@
       @1
          $instr[31:0] = $imem_rd_data[31:0];
          
+         // Decoding type of instruction
          $is_i_instr = $instr[6:2] ==? 5'b0000x ||
             $instr[6:2] ==? 5'b001x0 ||
             $instr[6:2] ==? 5'b11001 ||
@@ -63,6 +64,7 @@
          $is_j_instr = $instr[6:2] ==? 5'b11011;
          $is_u_instr = $instr[6:2] ==? 5'b0x101;
          
+         // Decoding fields
          $imm[31:0] = $is_i_instr ? { {21{$instr[31]}}, $instr[30:20] } :
             $is_s_instr ? { {21{$instr[31]}}, $instr[30:25], $instr[11:7] } :
             $is_b_instr ? { {20{$instr[31]}}, $instr[11:7], $instr[30:25], $instr[11:8], 1'b0 } :
@@ -92,6 +94,7 @@
          
          $opcode[6:0] = $instr[6:0];
          
+         // Decoding individual instructions
          $dec_bits[10:0] = {$funct7, $funct3, $opcode};
          $is_add = $dec_bits ==? 11'b0_000_0110011;
          $is_addi = $dec_bits ==? 11'bx_000_0010011;
@@ -102,18 +105,24 @@
          $is_bltu = $dec_bits ==? 11'bx_110_1100011;
          $is_bgeu = $dec_bits ==? 11'bx_111_1100011;
          
+         // Signals to read rs1/2 from register file
          $rf_rd_en1 = $rs1_valid;
          $rf_rd_index1[4:0] = $rs1[4:0];
          $rf_rd_en2 = $rs2_valid;
          $rf_rd_index2[4:0] = $rs2[4:0];
-         
+         // Values read from register file
          $src1_value[31:0] = $rf_rd_data1[31:0];
          $src2_value[31:0] = $rf_rd_data2[31:0];
          
+         // ALU operations
+         $result[31:0] = $is_addi ? $src1_value + $imm :
+            $is_add ? $src1_value + $src2_value :
+            32'h0000_0000;
          
-         $rf_wr_en = 0;
-         $rf_wr_index[4:0] = 5'h00;
-         $rf_wr_data[31:0] = 32'h0000_0000;
+         // Writing result to register file
+         $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00);
+         $rf_wr_index[4:0] = $rd[4:0];
+         $rf_wr_data[31:0] = $result[31:0];
          
          
          
