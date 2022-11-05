@@ -178,6 +178,7 @@
             $is_slt ? ( ($src1_value[31] == $src2_value[31]) ? $sltu_result[31:0] : {31'h0000_0000, $src1_value[31]} ) :
             $is_slti ? ( ($src1_value[31] == $imm[31]) ? $sltiu_result[31:0] : {31'h0000_0000, $src1_value[31]} ) :
             $is_sra ? { {32{$src1_value[31]}}, $src1_value} >> $src2_value[4:0] :
+            ($is_load || $is_s_instr) ? $src1_value + $imm :
             32'h0000_0000;
          
          // Recognizing branches
@@ -198,11 +199,20 @@
          $valid_load = $is_load && $valid;
          
          // Writing result to register file
-         $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00) && $valid;
-         $rf_wr_index[4:0] = $rd[4:0];
-         $rf_wr_data[31:0] = $result[31:0];
+         $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00) && ($valid || >>2$is_load);
+         $rf_wr_index[4:0] =
+            >>2$is_load ? >>2$rd[4:0] :
+            $rd[4:0];
+         $rf_wr_data[31:0] =
+            (!$valid) ? >>2$dmem_rd_data[31:0] :
+            $result[31:0];
          
-         
+         // Memory operations
+         $dmem_wr_en = $is_s_instr && $valid;
+         $dmem_addr[5:0] = $result[7:2];
+         $dmem_wr_data[31:0] = $src2_value[31:0];
+         $dmem_rd_en = $is_load && $valid;
+         $dmem_rd_index[5:0] = $result[7:2];
          
          
       // Note: Because of the magic we are using for visualisation, if visualisation is enabled below,
@@ -221,7 +231,7 @@
    |cpu
       m4+imem(@1)    // Args: (read stage)
       m4+rf(@2, @3)  // Args: (read stage, write stage) - if equal, no register bypass is required
-      //m4+dmem(@4)    // Args: (read/write stage)
+      m4+dmem(@4)    // Args: (read/write stage)
    
    //m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
 \SV
