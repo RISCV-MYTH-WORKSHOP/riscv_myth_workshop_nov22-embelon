@@ -43,6 +43,7 @@
          
          $pc[31:0] =
             (>>1$reset) ? 32'h000000 :
+            (>>1$taken_br) ? >>1$br_tgt_pc :
             (>>1$pc[31:0] + 32'h4);
          
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
@@ -67,7 +68,7 @@
          // Decoding fields
          $imm[31:0] = $is_i_instr ? { {21{$instr[31]}}, $instr[30:20] } :
             $is_s_instr ? { {21{$instr[31]}}, $instr[30:25], $instr[11:7] } :
-            $is_b_instr ? { {20{$instr[31]}}, $instr[11:7], $instr[30:25], $instr[11:8], 1'b0 } :
+            $is_b_instr ? { {20{$instr[31]}}, $instr[7], $instr[30:25], $instr[11:8], 1'b0 } :
             $is_j_instr ? { {12{$instr[31]}}, $instr[19:12], $instr[20], $instr[30:21], 1'b0 } :
             $is_u_instr ? { $instr[31:12], 12'h000 } :
             32'h00000000;
@@ -118,6 +119,16 @@
          $result[31:0] = $is_addi ? $src1_value + $imm :
             $is_add ? $src1_value + $src2_value :
             32'h0000_0000;
+         
+         // Recognizing branches
+         $taken_br = $is_beq ? ($src1_value == $src2_value) :
+            $is_bne ? ($src1_value != $src2_value) :
+            $is_blt ? (($src1_value < $src2_value) ^ ($src1_value[31] != $src2_value[31])) :
+            $is_bge ? (($src1_value >= $src2_value) ^ ($src1_value[31] != $src2_value[31])) :
+            $is_bltu ? ($src1_value < $src2_value) :
+            $is_bgeu ? ($src1_value >= $src2_value) :
+            1'b0;
+         $br_tgt_pc[31:0] = $pc[31:0] + $imm[31:0];
          
          // Writing result to register file
          $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00);
