@@ -42,15 +42,11 @@
          $reset = *reset;
          
          $start = >>1$reset && !$reset;
-         $valid = 
-            ($reset) ? 32'h0000_0000 :
-            ($start) ? 1'b1 :
-            >>3$valid;
          
          $pc[31:0] =
             (>>1$reset) ? 32'h000_000 :
             (>>3$valid_taken_br) ? >>3$br_tgt_pc :
-            (>>3$pc[31:0] + 32'h4);
+            (>>1$pc[31:0] + 32'h4);
          
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
          $imem_rd_en = !$reset;
@@ -120,8 +116,10 @@
          
       @2
          // Values read from register file
-         $src1_value[31:0] = $rf_rd_data1[31:0];
-         $src2_value[31:0] = $rf_rd_data2[31:0];
+         $src1_value[31:0] = ((>>1$rd == $rs1) && >>1$rf_wr_en) ? >>1$result :
+            $rf_rd_data1[31:0];
+         $src2_value[31:0] = ((>>1$rd == $rs2) && >>1$rf_wr_en) ? >>1$result :
+            $rf_rd_data2[31:0];
          // Caclulate target PC for branches
          $br_tgt_pc[31:0] = $pc[31:0] + $imm[31:0];
          
@@ -139,8 +137,11 @@
             $is_bltu ? ($src1_value < $src2_value) :
             $is_bgeu ? ($src1_value >= $src2_value) :
             1'b0;
+         $valid =
+            ($reset) ? 32'h0000_0000 :
+            ($start) ? 1'b1 :
+            (!>>1$taken_br && !>>2$taken_br);
          $valid_taken_br = $taken_br && $valid;
-         
          
          // Writing result to register file
          $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00) && $valid;
@@ -149,17 +150,10 @@
          
          
          
-         // quiet warnings
-         `BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu $is_add $is_addi )
-
-
-      // YOUR CODE HERE
-      // ...
-
+         
       // Note: Because of the magic we are using for visualisation, if visualisation is enabled below,
       //       be sure to avoid having unassigned signals (which you might be using for random inputs)
       //       other than those specifically expected in the labs. You'll get strange errors for these.
-
    
    // Assert these to end simulation (before Makerchip cycle limit).
    *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
