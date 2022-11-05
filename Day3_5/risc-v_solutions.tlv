@@ -70,12 +70,41 @@
             $is_u_instr ? { $instr[31:12], 12'h000 } :
             32'h00000000;
          
-         $funct7[6:0] = $instr[31:25];
-         $funct3[2:0] = $instr[14:12];
-         $rs1[4:0] = $instr[19:15];
-         $rs2[4:0] = $instr[24:20];
-         $rd[4:0] = $instr[11:7];
+         $funct7_valid = $is_r_instr;
+         ?$funct7_valid
+            $funct7[6:0] = $instr[31:25];
+         
+         $funct3_valid = $is_r_instr || $is_i_instr || $is_s_instr || $is_b_instr;
+         ?$funct3_valid
+            $funct3[2:0] = $instr[14:12];
+         
+         $rs1_valid = $is_r_instr || $is_i_instr || $is_s_instr || $is_b_instr;
+         ?$rs1_valid
+            $rs1[4:0] = $instr[19:15];
+         
+         $rs2_valid = $is_r_instr || $is_s_instr || $is_b_instr;
+         ?$rs2_valid
+            $rs2[4:0] = $instr[24:20];
+         
+         $rd_valid = $is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr;
+         ?$rd_valid
+            $rd[4:0] = $instr[11:7];
+         
          $opcode[6:0] = $instr[6:0];
+         
+         $dec_bits[10:0] = {$funct7, $funct3, $opcode};
+         $is_add = $dec_bits ==? 11'b0_000_0110011;
+         $is_addi = $dec_bits ==? 11'bx_000_0010011;
+         $is_beq = $dec_bits ==? 11'bx_000_1100011;
+         $is_bne = $dec_bits ==? 11'bx_001_1100011;
+         $is_blt = $dec_bits ==? 11'bx_100_1100011;
+         $is_bge = $dec_bits ==? 11'bx_101_1100011;
+         $is_bltu = $dec_bits ==? 11'bx_110_1100011;
+         $is_bgeu = $dec_bits ==? 11'bx_111_1100011;
+         
+         
+         // quiet warnings
+         `BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu $is_add $is_addi )
 
 
       // YOUR CODE HERE
