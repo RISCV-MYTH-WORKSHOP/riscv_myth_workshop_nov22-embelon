@@ -41,10 +41,16 @@
       @0
          $reset = *reset;
          
+         $start = >>1$reset && !$reset;
+         $valid = 
+            ($reset) ? 32'h0000_0000 :
+            ($start) ? 1'b1 :
+            >>3$valid;
+         
          $pc[31:0] =
-            (>>1$reset) ? 32'h000000 :
-            (>>1$taken_br) ? >>1$br_tgt_pc :
-            (>>1$pc[31:0] + 32'h4);
+            (>>1$reset) ? 32'h000_000 :
+            (>>3$valid_taken_br) ? >>3$br_tgt_pc :
+            (>>3$pc[31:0] + 32'h4);
          
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
          $imem_rd_en = !$reset;
@@ -128,10 +134,11 @@
             $is_bltu ? ($src1_value < $src2_value) :
             $is_bgeu ? ($src1_value >= $src2_value) :
             1'b0;
+         $valid_taken_br = $taken_br && $valid;
          $br_tgt_pc[31:0] = $pc[31:0] + $imm[31:0];
          
          // Writing result to register file
-         $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00);
+         $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00) && $valid;
          $rf_wr_index[4:0] = $rd[4:0];
          $rf_wr_data[31:0] = $result[31:0];
          
