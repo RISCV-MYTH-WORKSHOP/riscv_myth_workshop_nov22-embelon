@@ -34,9 +34,10 @@
    m4_asm(ADD, r10, r14, r0)            // Store final result to register a0 so that it can be read by main program
    m4_asm(SW, r0, r10, 100)             // Store result in memory
    m4_asm(LW, r15, r0, 100)             // Load back to verify memory operations
-   m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
-   m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
-   m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
+   m4_asm(JAL, r7, 0)                   // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
+   m4_asm(SW, r0, r10, 101)
+   m4_asm(SW, r0, r10, 110)
+   m4_asm(SW, r0, r10, 111)
    m4_define_hier(['M4_IMEM'], M4_NUM_INSTRS)
    
    |cpu
@@ -48,8 +49,8 @@
          $pc[31:0] =
             (>>1$reset) ? 32'h000_000 :
             (>>3$valid_taken_br) ? >>3$br_tgt_pc :
-            (>>3$valid_load) ? >>3$pc :
-            (>>3$valid_jump) ? >>3$jalr_tgt_pc :
+            (>>3$valid_jalr) ? >>3$jalr_tgt_pc :
+            (>>3$valid_load) ? >>2$pc :
             (>>1$pc[31:0] + 32'h4);
          
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
@@ -184,10 +185,9 @@
             ($is_load || $is_s_instr) ? $src1_value + $imm :
             32'h0000_0000;
          // jalr
-         $jalr_tgt_pc = $src1_value + $imm;
+         $jalr_tgt_pc[31:0] = $src1_value + $imm;
          
          // Recognizing branches and jumps
-         $is_jump = $is_jal || $is_jalr;
          $taken_br = $is_beq ? ($src1_value == $src2_value) :
             $is_bne ? ($src1_value != $src2_value) :
             $is_blt ? (($src1_value < $src2_value) ^ ($src1_value[31] != $src2_value[31])) :
@@ -196,32 +196,42 @@
             $is_bgeu ? ($src1_value >= $src2_value) :
             $is_jal ? 1'b1 :
             1'b0;
+         
          $valid =
             ($reset) ? 32'h0000_0000 :
             ($start) ? 1'b1 :
-            (>>1$taken_br || >>2$taken_br) ? 1'b0 :
-            (>>1$is_load || >>2$is_load || >>3$is_load) ? 1'b0 :
-            (>>1$is_jump || >>2$is_jump) ? 1'b0 :
+            (>>1$taken_br && >>1$valid) ? 1'b0 :
+            (>>2$taken_br && >>2$valid) ? 1'b0 :
+            (>>1$is_jalr && >>1$valid) ? 1'b0 :
+            (>>2$is_jalr && >>2$valid) ? 1'b0 :
+            (>>1$is_load && >>1$valid) ? 1'b0 :
+            (>>2$is_load && >>2$valid) ? 1'b0 :
             1'b1;
+         //(>>1$taken_br || >>2$taken_br) ? 1'b0 :
+         //(>>1$is_jalr || >>2$is_jalr) ? 1'b0 :
+         // (>>1$is_load || >>2$is_load) ? 1'b0 :
+         // ($is_load || >>1$is_load || >>2$is_load) ? 1'b0 :
          $valid_taken_br = $taken_br && $valid;
+         $valid_jalr = $is_jalr && $valid;
          $valid_load = $is_load && $valid;
-         $valid_jump = $is_jump && $valid;
          
          // Writing result to register file
-         $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00) && ($valid || >>3$is_load);
+         $rf_wr_en = ($rd[4:0] != 5'h00) &&
+            (($valid && $rd_valid) ? 1'b1 :
+            (!$valid && >>3$valid_load) ? 1'b1 :
+            1'b0);
          $rf_wr_index[4:0] =
-            >>3$is_load ? >>3$rd[4:0] :
+            >>3$valid_load ? >>3$rd[4:0] :
             $rd[4:0];
          $rf_wr_data[31:0] =
-            (!$valid) ? >>3$dmem_rd_data[31:0] :
+            >>3$valid_load ? >>2$dmem_rd_data[31:0] :
             $result[31:0];
          
-      @4
          // Memory operations
          $dmem_wr_en = $is_s_instr && $valid;
          $dmem_addr[5:0] = $result[7:2];
          $dmem_wr_data[31:0] = $src2_value[31:0];
-         $dmem_rd_en = $is_load && $valid;
+         $dmem_rd_en = $is_load;
          $dmem_rd_index[5:0] = $result[7:2];
          
          
@@ -231,7 +241,7 @@
    
    // Assert these to end simulation (before Makerchip cycle limit).
    //*passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
-   *passed = |cpu/xreg[15]>>5$value == (1+2+3+4+5+6+7+8+9);
+   *passed = |cpu/xreg[15]>>10$value == (1+2+3+4+5+6+7+8+9);
    *failed = 1'b0;
    
    // Macro instantiations for:
@@ -247,3 +257,4 @@
    m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
 \SV
    endmodule
+
