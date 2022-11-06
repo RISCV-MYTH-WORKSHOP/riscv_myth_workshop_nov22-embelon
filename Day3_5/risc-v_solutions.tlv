@@ -32,7 +32,9 @@
    m4_asm(ADDI, r13, r13, 1)            // Increment intermediate register by 1
    m4_asm(BLT, r13, r12, 1111111111000) // If a3 is less than a2, branch to label named <loop>
    m4_asm(ADD, r10, r14, r0)            // Store final result to register a0 so that it can be read by main program
-   
+   m4_asm(SW, r0, r10, 100)             // Store result in memory
+   m4_asm(LW, r15, r0, 100)             // Load back to verify memory operations
+      
    // Optional:
    // m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
    m4_define_hier(['M4_IMEM'], M4_NUM_INSTRS)
@@ -207,6 +209,7 @@
             (!$valid) ? >>2$dmem_rd_data[31:0] :
             $result[31:0];
          
+      @4
          // Memory operations
          $dmem_wr_en = $is_s_instr && $valid;
          $dmem_addr[5:0] = $result[7:2];
@@ -220,7 +223,8 @@
       //       other than those specifically expected in the labs. You'll get strange errors for these.
    
    // Assert these to end simulation (before Makerchip cycle limit).
-   *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
+   //*passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
+   *passed = |cpu/xreg[15]>>5$value == (1+2+3+4+5+6+7+8+9);
    *failed = 1'b0;
    
    // Macro instantiations for:
