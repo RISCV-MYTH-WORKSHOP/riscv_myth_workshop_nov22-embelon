@@ -217,7 +217,7 @@
          
          // Writing result to register file
          $rf_wr_en = ($rd[4:0] != 5'h00) &&
-            (($valid && $rd_valid) ? 1'b1 :
+            (($valid && $rd_valid && !$valid_load) ? 1'b1 :
             (!$valid && >>3$valid_load) ? 1'b1 :
             1'b0);
          $rf_wr_index[4:0] =
@@ -257,4 +257,3 @@
    m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
 \SV
    endmodule
-
