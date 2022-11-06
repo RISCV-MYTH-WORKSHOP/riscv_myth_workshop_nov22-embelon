@@ -49,6 +49,7 @@
             (>>1$reset) ? 32'h000_000 :
             (>>3$valid_taken_br) ? >>3$br_tgt_pc :
             (>>3$valid_load) ? >>3$pc :
+            (>>3$valid_jump) ? >>3$jalr_tgt_pc :
             (>>1$pc[31:0] + 32'h4);
          
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+1:2];
@@ -183,24 +184,28 @@
             ($is_load || $is_s_instr) ? $src1_value + $imm :
             32'h0000_0000;
          // jalr
-         $jarl_tgt_pc = $src1_value + $imm;
+         $jalr_tgt_pc = $src1_value + $imm;
          
-         // Recognizing branches
+         // Recognizing branches and jumps
+         $is_jump = $is_jal || $is_jalr;
          $taken_br = $is_beq ? ($src1_value == $src2_value) :
             $is_bne ? ($src1_value != $src2_value) :
             $is_blt ? (($src1_value < $src2_value) ^ ($src1_value[31] != $src2_value[31])) :
             $is_bge ? (($src1_value >= $src2_value) ^ ($src1_value[31] != $src2_value[31])) :
             $is_bltu ? ($src1_value < $src2_value) :
             $is_bgeu ? ($src1_value >= $src2_value) :
+            $is_jal ? 1'b1 :
             1'b0;
          $valid =
             ($reset) ? 32'h0000_0000 :
             ($start) ? 1'b1 :
             (>>1$taken_br || >>2$taken_br) ? 1'b0 :
             (>>1$is_load || >>2$is_load || >>3$is_load) ? 1'b0 :
+            (>>1$is_jump || >>2$is_jump) ? 1'b0 :
             1'b1;
          $valid_taken_br = $taken_br && $valid;
          $valid_load = $is_load && $valid;
+         $valid_jump = $is_jump && $valid;
          
          // Writing result to register file
          $rf_wr_en = $rd_valid && ($rd[4:0] != 5'h00) && ($valid || >>3$is_load);
